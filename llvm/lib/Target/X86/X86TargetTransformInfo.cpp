@@ -56,11 +56,22 @@
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 #include <optional>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "x86tti"
+
+// Local-only sweep instruments for break-even cost calibration.
+// NOT to be committed upstream -- present only on the zen-gs-i64-sweep
+// branch to drive microbenchmark measurement.
+static cl::opt<int> ForceGatherOverheadCost(
+    "force-gather-overhead-cost", cl::Hidden, cl::init(-1),
+    cl::desc("Override gather overhead returned by X86TTI (sweep-only)"));
+static cl::opt<int> ForceScatterOverheadCost(
+    "force-scatter-overhead-cost", cl::Hidden, cl::init(-1),
+    cl::desc("Override scatter overhead returned by X86TTI (sweep-only)"));
 
 //===----------------------------------------------------------------------===//
 //
@@ -6363,6 +6374,12 @@ InstructionCost X86TTIImpl::getCFInstrCost(unsigned Opcode,
 }
 
 int X86TTIImpl::getGatherOverhead(Type *SrcVTy) const {
+  // Sweep instrument (local-only): if set on the command line, this value
+  // is returned regardless of subtarget or shape. Used to drive break-even
+  // microbenchmarks; must not be set by released builds.
+  if (ForceGatherOverheadCost.getNumOccurrences() > 0)
+    return ForceGatherOverheadCost;
+
   // Some CPUs have more overhead for gather. The specified overhead is relative
   // to the Load operation. "2" is the number provided by Intel architects. This
   // parameter is used for cost estimation of Gather Op and comparison with
@@ -6420,6 +6437,10 @@ int X86TTIImpl::getGatherOverhead(Type *SrcVTy) const {
 }
 
 int X86TTIImpl::getScatterOverhead(Type *SrcVTy) const {
+  // Sweep instrument (local-only). See ForceGatherOverheadCost.
+  if (ForceScatterOverheadCost.getNumOccurrences() > 0)
+    return ForceScatterOverheadCost;
+
   // AMD znver4+ targets use per-shape scatter costs measured on the hardware
   // via TuningPreferAMDZenGSCost (set in ZN4Tuning). Fall through to the
   // generic flat overhead for shapes we have not characterised.
