@@ -321,6 +321,141 @@ InstructionCost VPRecipeBase::cost(ElementCount VF, VPCostContext &Ctx) {
     }
   }
 
+  if (VF.isVector() && VF.isFixed() && RecipeCost > 0) {
+    // Cast-specific split cost adjustment.  When a vector cast legalizes into
+    // multiple register parts whose source and destination part counts differ,
+    // TTI can misprice the full-width type:
+    //
+    //  * Widening casts (sext/zext/fpext): TTI can overestimate because its
+    //    recursive-halving legalization model adds cross-lane overhead at each
+    //    level that does not materialize when each legal-width part is cast
+    //    independently.  Take min(original, SplitFactor * per-part cost).
+    //
+    //  * Narrowing casts (trunc/fptrunc): TTI can underestimate because it
+    //    prices only the narrow destination width, missing the disassembly
+    //    overhead from the wider source parts.  Take the max instead.
+    if (auto *Cast = dyn_cast<VPWidenCastRecipe>(this)) {
+      unsigned Opcode = Cast->getOpcode();
+      VPValue *Operand = Cast->getOperand(0);
+      auto *SrcFVTy = dyn_cast<FixedVectorType>(
+          toVectorTy(Ctx.Types.inferScalarType(Operand), VF));
+      auto *DstFVTy =
+          dyn_cast<FixedVectorType>(toVectorTy(Cast->getScalarType(), VF));
+      if (SrcFVTy && DstFVTy) {
+        unsigned SrcParts = Ctx.TTI.getNumberOfParts(SrcFVTy);
+        unsigned DstParts = Ctx.TTI.getNumberOfParts(DstFVTy);
+        if (SrcParts > 0 && DstParts > 0 && SrcParts != DstParts) {
+          unsigned SplitFactor = std::max(SrcParts, DstParts);
+          unsigned ElemsPerPart = SrcFVTy->getNumElements() / SplitFactor;
+          if (ElemsPerPart > 0) {
+            auto *LegalSrcTy =
+                FixedVectorType::get(SrcFVTy->getElementType(), ElemsPerPart);
+            auto *LegalDstTy =
+                FixedVectorType::get(DstFVTy->getElementType(), ElemsPerPart);
+            TTI::CastContextHint CCH = TTI::CastContextHint::None;
+            if (Operand->isDefinedOutsideLoopRegions())
+              CCH = TTI::CastContextHint::Normal;
+            InstructionCost PerPartCost = Ctx.TTI.getCastInstrCost(
+                Opcode, LegalDstTy, LegalSrcTy, CCH, Ctx.CostKind,
+                dyn_cast_if_present<Instruction>(Cast->getUnderlyingValue()));
+            InstructionCost ComputedCost = SplitFactor * PerPartCost;
+            if (ComputedCost.isValid() && RecipeCost.isValid()) {
+              bool IsNarrowing = (Opcode == Instruction::Trunc ||
+                                  Opcode == Instruction::FPTrunc);
+              RecipeCost = IsNarrowing ? std::max(RecipeCost, ComputedCost)
+                                       : std::min(RecipeCost, ComputedCost);
+            }
+          }
+        }
+      }
+    }
+
+    // Mask expansion cost for selects and blends.  When a condition type
+    // (e.g. <64 x i1> from an i8 comparison) splits into fewer register
+    // parts than the value type (e.g. <64 x i32> → 4 parts), the mask
+    // must be replicated/split to match.  TTI does not account for this
+    // extra work.  Add (ValParts - CondParts) * 2 to cover the mask
+    // manipulation overhead.
+    auto MaskExpansionCost = [&](Type *ValTy, Type *CondTy) -> InstructionCost {
+      auto *VecValTy = dyn_cast<VectorType>(ValTy);
+      auto *VecCondTy = dyn_cast<VectorType>(CondTy);
+      if (VecValTy && VecCondTy) {
+        unsigned ValParts = Ctx.TTI.getNumberOfParts(VecValTy);
+        unsigned CondParts = Ctx.TTI.getNumberOfParts(VecCondTy);
+        if (ValParts > CondParts && CondParts > 0)
+          return InstructionCost((ValParts - CondParts) * 2);
+      }
+      return 0;
+    };
+
+    if (auto *W = dyn_cast<VPWidenRecipe>(this)) {
+      if (W->getOpcode() == Instruction::Select &&
+          !W->getOperand(0)->isDefinedOutsideLoopRegions()) {
+        Type *ValTy = toVectorTy(Ctx.Types.inferScalarType(W), VF);
+        Type *CondTy = toVectorTy(
+            Ctx.Types.inferScalarType(W->getOperand(0)), VF);
+        RecipeCost += MaskExpansionCost(ValTy, CondTy);
+      }
+    } else if (auto *Blend = dyn_cast<VPBlendRecipe>(this)) {
+      if (!vputils::onlyFirstLaneUsed(Blend)) {
+        Type *ValTy = toVectorTy(Ctx.Types.inferScalarType(Blend), VF);
+        Type *CondTy = toVectorTy(
+            Type::getInt1Ty(Ctx.Types.getContext()), VF);
+        InstructionCost MaskCost = MaskExpansionCost(ValTy, CondTy);
+        if (MaskCost > 0)
+          RecipeCost += (Blend->getNumIncomingValues() - 1) * MaskCost;
+      }
+    } else if (auto *Load = dyn_cast<VPWidenLoadRecipe>(this)) {
+      if (Load->isMasked() && Load->isConsecutive()) {
+        Type *MemVecTy = toVectorTy(
+            Ctx.Types.inferScalarType(
+                cast<VPSingleDefRecipe>(const_cast<VPWidenLoadRecipe *>(Load))),
+            VF);
+        auto *MaskTy = VectorType::get(
+            Type::getInt1Ty(MemVecTy->getContext()),
+            cast<VectorType>(MemVecTy)->getElementCount());
+        RecipeCost += MaskExpansionCost(MemVecTy, MaskTy);
+      }
+    } else if (auto *Store = dyn_cast<VPWidenStoreRecipe>(this)) {
+      if (Store->isMasked() && Store->isConsecutive()) {
+        Type *MemVecTy = toVectorTy(
+            Ctx.Types.inferScalarType(Store->getStoredValue()), VF);
+        auto *MaskTy = VectorType::get(
+            Type::getInt1Ty(MemVecTy->getContext()),
+            cast<VectorType>(MemVecTy)->getElementCount());
+        RecipeCost += MaskExpansionCost(MemVecTy, MaskTy);
+      }
+    }
+
+    // General split cost floor.  When a recipe's result type legalizes into
+    // NumParts > 1 register parts, enforce a cost floor of
+    // NumParts * computeCost(per-part VF).  This prevents TTI from
+    // underpricing wide types that exceed register width -- some TTI cost
+    // functions (e.g. for selects, intrinsics) may lack accurate split
+    // models and return optimistic costs for illegal types.  The floor
+    // is a no-op when TTI already returns a correctly scaled cost
+    // (e.g. arithmetic, which uses LT.first * OpCost internally).
+    if (auto *SDR = dyn_cast<VPSingleDefRecipe>(this)) {
+      if (!isa<VPWidenCastRecipe, VPWidenCallRecipe, VPWidenIntrinsicRecipe,
+              VPReplicateRecipe>(this)) {
+        Type *ScalarTy = Ctx.Types.inferScalarType(SDR);
+        if (VectorType::isValidElementType(ScalarTy)) {
+          auto *VecTy = dyn_cast<FixedVectorType>(toVectorTy(ScalarTy, VF));
+          if (VecTy) {
+            unsigned NumParts = Ctx.TTI.getNumberOfParts(VecTy);
+            if (NumParts > 1) {
+              ElementCount LegalVF = VF.divideCoefficientBy(NumParts);
+              InstructionCost PerPartCost = computeCost(LegalVF, Ctx);
+              InstructionCost SplitCost = NumParts * PerPartCost;
+              if (SplitCost.isValid() && RecipeCost.isValid())
+                RecipeCost = std::max(RecipeCost, SplitCost);
+            }
+          }
+        }
+      }
+    }
+  }
+
   LLVM_DEBUG({
     dbgs() << "Cost of " << RecipeCost << " for VF " << VF << ": ";
     dump();

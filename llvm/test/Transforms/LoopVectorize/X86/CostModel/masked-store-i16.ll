@@ -45,7 +45,7 @@ define void @test(ptr %C) {
 ; AVX512:  Cost of 1 for VF 8: WIDEN store vp<[[VP7]]>, ir<%valB>, ir<%canStore> (!alias.scope {{.*}}, !noalias {{.*}})
 ; AVX512:  Cost of 1 for VF 16: WIDEN store vp<[[VP7]]>, ir<%valB>, ir<%canStore> (!alias.scope {{.*}}, !noalias {{.*}})
 ; AVX512:  Cost of 1 for VF 32: WIDEN store vp<[[VP7]]>, ir<%valB>, ir<%canStore> (!alias.scope {{.*}}, !noalias {{.*}})
-; AVX512:  Cost of 2 for VF 64: WIDEN store vp<[[VP7]]>, ir<%valB>, ir<%canStore> (!alias.scope {{.*}}, !noalias {{.*}})
+; AVX512:  Cost of 4 for VF 64: WIDEN store vp<[[VP7]]>, ir<%valB>, ir<%canStore> (!alias.scope {{.*}}, !noalias {{.*}})
 ;
 entry:
   br label %for.body
