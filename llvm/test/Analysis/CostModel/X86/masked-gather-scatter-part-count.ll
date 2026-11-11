@@ -7,6 +7,13 @@
 ; taken from the same module. The throughput run pins the per-lane term, which
 ; code size does not expose.
 ;
+; The sub-mask count is pinned the same way, against the kshift CodeGen emits.
+; A compare lands in one k register per register's worth of its own elements,
+; so only the instructions beyond those need a kshift. Combining two compares
+; is taken to cover fewer, since the combine happens in the coarser of their
+; splits. That is pessimistic where CodeGen sinks the and or the or into the
+; compare's operands instead, which emits no kshift at all.
+;
 ; Maintained by hand rather than by update_analyze_test_checks.py, which does
 ; not know about the paired llc runs.
 
@@ -780,6 +787,211 @@ define <8 x i32> @gather_v8i32_splat_const_index(ptr %base, <8 x i1> %mask) {
   %ptrs = getelementptr inbounds i32, ptr %base, <8 x i64> zeroinitializer
   %v = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> %ptrs, i32 4, <8 x i1> %mask, <8 x i32> poison)
   ret <8 x i32> %v
+}
+
+; A wider index splits the operation past the sub-masks the mask holds, and each
+; instruction beyond them needs a kshift. How many it holds follows the compare
+; that built it, so the mask is built here from the data's own element type, the
+; way a vectorized loop's compare does. The shape after the next one builds the
+; same mask from wider elements and needs no shift at all.
+; SKX-COST-LABEL: 'gather_v16i32_qword_index_cmp_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i32_qword_index_cmp_mask'
+; SKX-TPUT: cost of 20 for instruction: {{.*}}masked.gather
+; SKX-ASM-LABEL: gather_v16i32_qword_index_cmp_mask:
+; SKX-ASM-COUNT-2: vpgatherqd
+; AVX2-COST-LABEL: 'gather_v16i32_qword_index_cmp_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; AVX2-ASM-LABEL: gather_v16i32_qword_index_cmp_mask:
+; AVX2-ASM-COUNT-4: vpgatherqd
+; ZEN-TPUT-LABEL: 'gather_v16i32_qword_index_cmp_mask'
+; ZEN-TPUT: cost of 40 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i32_qword_index_cmp_mask:
+; ZEN-ASM-COUNT-1: kshiftrw
+; ZEN-ASM-COUNT-2: vpgatherqd
+define <16 x i32> @gather_v16i32_qword_index_cmp_mask(ptr %base, <16 x i64> %idx, <16 x i32> %sel) {
+  %mask = icmp sgt <16 x i32> %sel, zeroinitializer
+  %ptrs = getelementptr inbounds i32, ptr %base, <16 x i64> %idx
+  %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %mask, <16 x i32> poison)
+  ret <16 x i32> %v
+}
+
+; The same split at a length that does not fill its parts. Three gathers, but
+; the data occupies two parts and the compare leaves a sub-mask for each, so one
+; kshift covers the third. A sub-mask count taken from the three instructions
+; would charge two. AVX2 scalarizes this length, so only the AVX-512 targets
+; carry an instruction count.
+; SKX-COST-LABEL: 'gather_v24i32_qword_index_cmp_mask'
+; SKX-COST: cost of 3 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v24i32_qword_index_cmp_mask'
+; SKX-TPUT: cost of 34 for instruction: {{.*}}masked.gather
+; SKX-ASM-LABEL: gather_v24i32_qword_index_cmp_mask:
+; SKX-ASM-COUNT-3: vpgatherqd
+; ZEN-TPUT-LABEL: 'gather_v24i32_qword_index_cmp_mask'
+; ZEN-TPUT: cost of 67 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v24i32_qword_index_cmp_mask:
+; ZEN-ASM-COUNT-1: kshiftrw
+; ZEN-ASM-COUNT-3: vpgatherqd
+define <24 x i32> @gather_v24i32_qword_index_cmp_mask(ptr %base, <24 x i64> %idx, <24 x i32> %sel) {
+  %mask = icmp sgt <24 x i32> %sel, zeroinitializer
+  %ptrs = getelementptr inbounds i32, ptr %base, <24 x i64> %idx
+  %v = call <24 x i32> @llvm.masked.gather.v24i32.v24p0(<24 x ptr> %ptrs, i32 4, <24 x i1> %mask, <24 x i32> poison)
+  ret <24 x i32> %v
+}
+
+; The same split as the 16-wide shape above, but the mask comes from a compare
+; over i64. That legalizes into one k register per eight lanes, so both gathers
+; already have their sub-mask and nothing is shifted. A count taken from the
+; data parts would charge a shift here.
+; SKX-COST-LABEL: 'gather_v16i32_qword_index_wide_cmp_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i32_qword_index_wide_cmp_mask'
+; SKX-TPUT: cost of 20 for instruction: {{.*}}masked.gather
+; SKX-ASM-LABEL: gather_v16i32_qword_index_wide_cmp_mask:
+; SKX-ASM-COUNT-2: vpgatherqd
+; AVX2-COST-LABEL: 'gather_v16i32_qword_index_wide_cmp_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v16i32_qword_index_wide_cmp_mask'
+; ZEN-TPUT: cost of 36 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i32_qword_index_wide_cmp_mask:
+; ZEN-ASM-NOT: kshift
+; ZEN-ASM-COUNT-2: vpgatherqd
+define <16 x i32> @gather_v16i32_qword_index_wide_cmp_mask(ptr %base, <16 x i64> %idx, <16 x i64> %sel) {
+  %mask = icmp sgt <16 x i64> %sel, zeroinitializer
+  %ptrs = getelementptr inbounds i32, ptr %base, <16 x i64> %idx
+  %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %mask, <16 x i32> poison)
+  ret <16 x i32> %v
+}
+
+; The same mask behind a freeze, which keeps the split its operand arrived in.
+; A derivation that only recognised a compare directly would charge a shift
+; here. The bitwise combinators are looked through the same way.
+; SKX-COST-LABEL: 'gather_v16i32_qword_index_frozen_wide_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i32_qword_index_frozen_wide_mask'
+; SKX-TPUT: cost of 20 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v16i32_qword_index_frozen_wide_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v16i32_qword_index_frozen_wide_mask'
+; ZEN-TPUT: cost of 36 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i32_qword_index_frozen_wide_mask:
+; ZEN-ASM-NOT: kshift
+; ZEN-ASM-COUNT-2: vpgatherqd
+define <16 x i32> @gather_v16i32_qword_index_frozen_wide_mask(ptr %base, <16 x i64> %idx, <16 x i64> %sel) {
+  %cmp = icmp sgt <16 x i64> %sel, zeroinitializer
+  %mask = freeze <16 x i1> %cmp
+  %ptrs = getelementptr inbounds i32, ptr %base, <16 x i64> %idx
+  %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %mask, <16 x i32> poison)
+  ret <16 x i32> %v
+}
+
+; An i16 compare masking three qword-indexed gathers, combined with a constant.
+; The constant lane pattern holds no sub-mask of its own, so the count comes
+; from the compare alone and this reads the same as the compare direct. Taking
+; the wider of the two would drop a shift that CodeGen does emit.
+; SKX-COST-LABEL: 'gather_v24i32_const_and_narrow_cmp_mask'
+; SKX-COST: cost of 3 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v24i32_const_and_narrow_cmp_mask'
+; SKX-TPUT: cost of 34 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v24i32_const_and_narrow_cmp_mask'
+; AVX2-COST: cost of 6 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v24i32_const_and_narrow_cmp_mask'
+; ZEN-TPUT: cost of 71 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v24i32_const_and_narrow_cmp_mask:
+; ZEN-ASM-COUNT-2: kshiftrd
+define <24 x i32> @gather_v24i32_const_and_narrow_cmp_mask(ptr %base, <24 x i64> %idx, <24 x i16> %sel) {
+  %cmp = icmp sgt <24 x i16> %sel, zeroinitializer
+  %mask = and <24 x i1> %cmp, <i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false>
+  %ptrs = getelementptr inbounds i32, ptr %base, <24 x i64> %idx
+  %v = call <24 x i32> @llvm.masked.gather.v24i32.v24p0(<24 x ptr> %ptrs, i32 4, <24 x i1> %mask, <24 x i32> poison)
+  ret <24 x i32> %v
+}
+
+; Two compares of different widths, combined. CodeGen performs the combine in
+; the coarser of the two splits here, so the narrower compare sets the count.
+; Taking the wider one would drop the shift it emits.
+; SKX-COST-LABEL: 'gather_v16i32_qword_index_mixed_cmp_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i32_qword_index_mixed_cmp_mask'
+; SKX-TPUT: cost of 20 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v16i32_qword_index_mixed_cmp_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v16i32_qword_index_mixed_cmp_mask'
+; ZEN-TPUT: cost of 40 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i32_qword_index_mixed_cmp_mask:
+; ZEN-ASM-COUNT-1: kshiftrw
+define <16 x i32> @gather_v16i32_qword_index_mixed_cmp_mask(ptr %base, <16 x i64> %idx, <16 x i64> %wide, <16 x i32> %narrow) {
+  %cw = icmp sgt <16 x i64> %wide, zeroinitializer
+  %cn = icmp sgt <16 x i32> %narrow, zeroinitializer
+  %mask = and <16 x i1> %cw, %cn
+  %ptrs = getelementptr inbounds i32, ptr %base, <16 x i64> %idx
+  %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %mask, <16 x i32> poison)
+  ret <16 x i32> %v
+}
+
+; A chain of freezes over one compare. Walking a bounded depth would give up
+; part way along and charge a shift that is never emitted.
+; SKX-COST-LABEL: 'gather_v16i32_qword_index_freeze_chain_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i32_qword_index_freeze_chain_mask'
+; SKX-TPUT: cost of 20 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v16i32_qword_index_freeze_chain_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v16i32_qword_index_freeze_chain_mask'
+; ZEN-TPUT: cost of 36 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i32_qword_index_freeze_chain_mask:
+; ZEN-ASM-NOT: kshift
+define <16 x i32> @gather_v16i32_qword_index_freeze_chain_mask(ptr %base, <16 x i64> %idx, <16 x i64> %sel) {
+  %cmp = icmp sgt <16 x i64> %sel, zeroinitializer
+  %f1 = freeze <16 x i1> %cmp
+  %f2 = freeze <16 x i1> %f1
+  %f3 = freeze <16 x i1> %f2
+  %f4 = freeze <16 x i1> %f3
+  %f5 = freeze <16 x i1> %f4
+  %ptrs = getelementptr inbounds i32, ptr %base, <16 x i64> %idx
+  %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %f5, <16 x i32> poison)
+  ret <16 x i32> %v
+}
+
+; The same constant lane pattern as above, behind a freeze. A constant holds no
+; sub-mask however it is wrapped, so this reads the same as the compare direct.
+; SKX-COST-LABEL: 'gather_v24i32_frozen_const_and_narrow_cmp_mask'
+; SKX-COST: cost of 3 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v24i32_frozen_const_and_narrow_cmp_mask'
+; SKX-TPUT: cost of 34 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v24i32_frozen_const_and_narrow_cmp_mask'
+; AVX2-COST: cost of 6 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v24i32_frozen_const_and_narrow_cmp_mask'
+; ZEN-TPUT: cost of 71 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v24i32_frozen_const_and_narrow_cmp_mask:
+; ZEN-ASM-COUNT-2: kshiftrd
+define <24 x i32> @gather_v24i32_frozen_const_and_narrow_cmp_mask(ptr %base, <24 x i64> %idx, <24 x i16> %sel) {
+  %cmp = icmp sgt <24 x i16> %sel, zeroinitializer
+  %fc = freeze <24 x i1> <i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false, i1 true, i1 false>
+  %mask = and <24 x i1> %cmp, %fc
+  %ptrs = getelementptr inbounds i32, ptr %base, <24 x i64> %idx
+  %v = call <24 x i32> @llvm.masked.gather.v24i32.v24p0(<24 x ptr> %ptrs, i32 4, <24 x i1> %mask, <24 x i32> poison)
+  ret <24 x i32> %v
+}
+
+; Splitting the operation re-splits a bare compare with it, so a mask built
+; from narrower elements than the data still covers both parts. Counting the
+; compare's own registers alone would charge a shift here.
+; SKX-COST-LABEL: 'gather_v16i64_narrow_cmp_mask'
+; SKX-COST: cost of 2 for instruction: {{.*}}masked.gather
+; SKX-TPUT-LABEL: 'gather_v16i64_narrow_cmp_mask'
+; SKX-TPUT: cost of 24 for instruction: {{.*}}masked.gather
+; AVX2-COST-LABEL: 'gather_v16i64_narrow_cmp_mask'
+; AVX2-COST: cost of 4 for instruction: {{.*}}masked.gather
+; ZEN-TPUT-LABEL: 'gather_v16i64_narrow_cmp_mask'
+; ZEN-TPUT: cost of 64 for instruction: {{.*}}masked.gather
+; ZEN-ASM-LABEL: gather_v16i64_narrow_cmp_mask:
+; ZEN-ASM-NOT: kshift
+define <16 x i64> @gather_v16i64_narrow_cmp_mask(ptr %base, <16 x i64> %idx, <16 x i32> %sel) {
+  %mask = icmp sgt <16 x i32> %sel, zeroinitializer
+  %ptrs = getelementptr inbounds i64, ptr %base, <16 x i64> %idx
+  %v = call <16 x i64> @llvm.masked.gather.v16i64.v16p0(<16 x ptr> %ptrs, i32 8, <16 x i1> %mask, <16 x i64> poison)
+  ret <16 x i64> %v
 }
 
 ; A GEP whose scalar index is uniform but not a constant. It contributes a fixed

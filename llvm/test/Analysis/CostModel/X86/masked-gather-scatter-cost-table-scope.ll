@@ -72,14 +72,14 @@
 ; RUN:   -disable-output -cost-kind=all -mcpu=skylake-avx512 \
 ; RUN:   -mattr=+prefer-gs-cost-table 2>&1 | FileCheck %s --check-prefix=SKX-ON
 
-; A wider index splits this into two instructions, so the body is charged twice
-; while the premium follows the lanes. Only throughput moves, which the shared
-; latency and size-latency prefixes hold.
+; A wider index splits this into two instructions and CodeGen builds a sub-mask
+; for the second. That charge is throughput only, which the shared latency and
+; size-latency prefixes hold.
 define <16 x i32> @gather_v16i32(<16 x ptr> %ptrs, <16 x i1> %mask) {
 ; ZEN-TPUT-OFF-LABEL: 'gather_v16i32'
 ; ZEN-TPUT-OFF: Cost Model: Found an estimated cost of 20 for instruction: %v = call
 ; ZEN-TPUT-ON-LABEL: 'gather_v16i32'
-; ZEN-TPUT-ON: Cost Model: Found an estimated cost of 36 for instruction: %v = call
+; ZEN-TPUT-ON: Cost Model: Found an estimated cost of 40 for instruction: %v = call
 ; ZEN-LAT-LABEL: 'gather_v16i32'
 ; ZEN-LAT: Cost Model: Found an estimated cost of 68 for instruction: %v = call
 ; ZEN-SIZELAT-LABEL: 'gather_v16i32'
@@ -102,7 +102,7 @@ define <12 x i32> @gather_v12i32(<12 x ptr> %ptrs, <12 x i1> %mask) {
 ; ZEN-TPUT-OFF-LABEL: 'gather_v12i32'
 ; ZEN-TPUT-OFF: Cost Model: Found an estimated cost of 16 for instruction: %v = call
 ; ZEN-TPUT-ON-LABEL: 'gather_v12i32'
-; ZEN-TPUT-ON: Cost Model: Found an estimated cost of 36 for instruction: %v = call
+; ZEN-TPUT-ON: Cost Model: Found an estimated cost of 40 for instruction: %v = call
 ; ZEN-LAT-LABEL: 'gather_v12i32'
 ; ZEN-LAT: Cost Model: Found an estimated cost of 52 for instruction: %v = call
 ; ZEN-SIZELAT-LABEL: 'gather_v12i32'

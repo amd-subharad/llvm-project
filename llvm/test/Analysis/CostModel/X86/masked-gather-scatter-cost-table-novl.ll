@@ -85,11 +85,11 @@ define <8 x i32> @gather_v8i32_qword_index(<8 x ptr> %ptrs, <8 x i1> %mask) {
 ; Already full width: unaffected either way.
 define <16 x i32> @gather_v16i32(<16 x ptr> %ptrs, <16 x i1> %mask) {
 ; VL-LABEL: 'gather_v16i32'
-; VL-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 4 %ptrs, <16 x i1> %mask, <16 x i32> poison)
+; VL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 4 %ptrs, <16 x i1> %mask, <16 x i32> poison)
 ; VL-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x i32> %v
 ;
 ; NOVL-LABEL: 'gather_v16i32'
-; NOVL-NEXT:  Cost Model: Found an estimated cost of 36 for instruction: %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 4 %ptrs, <16 x i1> %mask, <16 x i32> poison)
+; NOVL-NEXT:  Cost Model: Found an estimated cost of 40 for instruction: %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 4 %ptrs, <16 x i1> %mask, <16 x i32> poison)
 ; NOVL-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret <16 x i32> %v
 ;
   %v = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> %ptrs, i32 4, <16 x i1> %mask, <16 x i32> poison)

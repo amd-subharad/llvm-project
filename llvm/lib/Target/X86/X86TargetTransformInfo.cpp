@@ -3851,14 +3851,113 @@ InstructionCost X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst,
 // legalizes into more parts than the mask, codegen builds a sub-mask per extra
 // part (kshiftr on AVX-512, unpack/extend on SSE/AVX) the per-part tables miss.
 // FanoutCostPerPart is a tie-break: it beats the vectorizer's widest-VF bias.
+static InstructionCost getPredicateFanoutCost(unsigned Parts,
+                                              unsigned Available) {
+  constexpr unsigned FanoutCostPerPart = 4;
+  if (Parts > Available && Available > 0)
+    return InstructionCost((Parts - Available) * FanoutCostPerPart);
+  return InstructionCost(0);
+}
+
 static InstructionCost getPredicateFanoutCost(const X86TTIImpl &TTI,
                                               Type *DataVTy, Type *MaskVTy) {
-  constexpr unsigned FanoutCostPerPart = 4;
-  unsigned DataParts = TTI.getNumberOfParts(DataVTy);
-  unsigned MaskParts = TTI.getNumberOfParts(MaskVTy);
-  if (DataParts > MaskParts && MaskParts > 0)
-    return InstructionCost((DataParts - MaskParts) * FanoutCostPerPart);
-  return InstructionCost(0);
+  return getPredicateFanoutCost(TTI.getNumberOfParts(DataVTy),
+                                TTI.getNumberOfParts(MaskVTy));
+}
+
+// How a variable mask arrives in k registers.
+struct GSMaskSplit {
+  // The registers it is held in. A compare lands in one per register's worth
+  // of its own elements, so a mask from wider elements arrives split finer
+  // than the data.
+  unsigned SubMasks;
+  // Whether type legalization still re-splits it for free. Splitting the
+  // operation narrows a bare compare with it. Crossing a bitwise combinator is
+  // taken to lose that, which is pessimistic for and and or: CodeGen can sink
+  // those into the compare's operands and emit no shift at all.
+  bool Resplittable;
+};
+
+// Read that split off the mask, or nothing when no instruction identifies it.
+// freeze keeps the split its operand arrived in. A bitwise combinator is
+// performed in the coarsest split of its operands, so take the least of them,
+// and a constant operand holds no register of its own, so skip it.
+static std::optional<GSMaskSplit> getGSMaskSplit(const X86TTIImpl &TTI,
+                                                 const Value *Mask, unsigned VF,
+                                                 unsigned MaxRegBits) {
+  // One register's worth of the compared elements, which is narrower than
+  // MaxRegBits for an element the subtarget cannot compare that wide.
+  auto subMasksFor = [&](const CmpInst *Cmp) -> std::optional<unsigned> {
+    Type *OpTy = Cmp->getOperand(0)->getType();
+    unsigned OpBits = OpTy->getScalarSizeInBits();
+    if (!OpBits || OpBits > MaxRegBits)
+      return std::nullopt;
+    unsigned Lanes = MaxRegBits / OpBits;
+    auto *ChunkTy = FixedVectorType::get(OpTy->getScalarType(), Lanes);
+    Lanes /= std::max(1u, TTI.getNumberOfParts(ChunkTy));
+    return divideCeil(VF, std::max(1u, Lanes));
+  };
+
+  if (const auto *Cmp = dyn_cast_or_null<CmpInst>(Mask)) {
+    if (std::optional<unsigned> SubMasks = subMasksFor(Cmp))
+      return GSMaskSplit{*SubMasks, true};
+    return std::nullopt;
+  }
+
+  const auto *Root = dyn_cast_or_null<Instruction>(Mask);
+  if (!Root || !(isa<FreezeInst>(Root) || Root->isBitwiseLogicOp()))
+    return std::nullopt;
+
+  // Walk the chain rather than recursing to a depth limit, which a long chain
+  // would hit and leave charging shifts CodeGen does not emit.
+  SmallVector<const Value *, 8> Worklist(Root->operand_values());
+  SmallPtrSet<const Value *, 8> Visited;
+  bool Bitwise = !isa<FreezeInst>(Root);
+  unsigned SubMasks = std::numeric_limits<unsigned>::max();
+  while (!Worklist.empty()) {
+    const Value *Op = Worklist.pop_back_val();
+    if (isa<Constant>(Op) || !Visited.insert(Op).second)
+      continue;
+    if (const auto *Cmp = dyn_cast<CmpInst>(Op)) {
+      std::optional<unsigned> OpSubMasks = subMasksFor(Cmp);
+      if (!OpSubMasks)
+        return std::nullopt;
+      SubMasks = std::min(SubMasks, *OpSubMasks);
+      continue;
+    }
+    const auto *I = dyn_cast<Instruction>(Op);
+    if (!I || !(isa<FreezeInst>(I) || I->isBitwiseLogicOp()))
+      return std::nullopt;
+    Bitwise |= !isa<FreezeInst>(I);
+    append_range(Worklist, I->operand_values());
+  }
+  if (SubMasks == std::numeric_limits<unsigned>::max())
+    return std::nullopt;
+  return GSMaskSplit{SubMasks, !Bitwise};
+}
+
+// The kshifts a gather or scatter needs to build a sub-mask for each of Parts
+// instructions. EltBits is the data element width and MaxRegBits the width
+// CodeGen splits the operation at. An unidentifiable mask is taken to arrive in
+// the data's own split, and an irregular length is widened before it can be
+// extracted, so it loses the free re-split.
+//
+// Parts omits a widened scatter's trailing instruction, which reuses a
+// sub-mask. Where it builds its own, as a 48-lane scatter does, that shift
+// goes uncharged.
+static InstructionCost getGSSubMaskCost(const X86TTIImpl &TTI,
+                                        const Value *Mask, unsigned VF,
+                                        unsigned Parts, unsigned EltBits,
+                                        unsigned MaxRegBits) {
+  unsigned DataChunks = divideCeil(VF, std::max(1u, MaxRegBits / EltBits));
+  unsigned Held = DataChunks;
+  if (std::optional<GSMaskSplit> Split =
+          getGSMaskSplit(TTI, Mask, VF, MaxRegBits)) {
+    Held = Split->SubMasks;
+    if (Split->Resplittable && isPowerOf2_32(VF))
+      Held = std::max(Held, std::min(Parts, DataChunks));
+  }
+  return getPredicateFanoutCost(Parts, Held);
 }
 
 InstructionCost X86TTIImpl::getCmpSelInstrCost(
@@ -7709,6 +7808,16 @@ InstructionCost X86TTIImpl::getZenGSVectorCost(
   if (CostKind == TTI::TCK_CodeSize)
     return EmittedParts;
 
+  // kshift builds a sub-mask for every instruction past the ones the mask
+  // already arrives in. Charged only with a mask to read, since the
+  // LoopVectorizer costs the scalar load it is considering and the rows were
+  // calibrated through that path. The count excludes a scatter's widened
+  // trailing part, which reuses a sub-mask.
+  InstructionCost SubMaskCost = 0;
+  if (CostKind == TTI::TCK_RecipThroughput && VariableMask && Mask && PartVF)
+    SubMaskCost = getGSSubMaskCost(*this, Mask, VF, divideCeil(VF, PartVF),
+                                   EltBits, MaxRegBits);
+
   // Decompose into the legal power-of-two shape CodeGen emits, then price it
   // from its calibrated row and the schedule model. The body is charged per
   // emitted part, the premium per register's worth of live lanes.
@@ -7786,7 +7895,7 @@ InstructionCost X86TTIImpl::getZenGSVectorCost(
       // grows with the live lanes, and emptied parts are not emitted.
       if (std::optional<InstructionCost::CostType> Priced =
               priceLanes(ActiveLanes, EmittedParts))
-        return *Priced;
+        return *Priced + SubMaskCost;
     }
   }
 
@@ -7796,7 +7905,7 @@ InstructionCost X86TTIImpl::getZenGSVectorCost(
   // candidate row was declined. Counting legalized registers and declared
   // lanes instead would move costs the rows do not supply.
   const int GSOverhead = IsLoad ? getGatherOverhead() : getScatterOverhead();
-  return EmittedParts * GSOverhead +
+  return EmittedParts * GSOverhead + SubMaskCost +
          ActiveLanes * getMemoryOpCost(Opcode, SrcVTy->getScalarType(),
                                        Alignment, AddressSpace, CostKind);
 }
@@ -7928,7 +8037,14 @@ X86TTIImpl::getGatherScatterOpCost(const MemIntrinsicCostAttributes &MICA,
   // derives, while FanoutCostPerPart is a tie-break against the vectorizer's
   // widest-VF bias. Charging it anyway prices shapes above every instruction
   // CodeGen emits for them, including ones that build no sub-mask at all.
-  if (MICA.getVariableMask() && CostKind != TTI::TCK_CodeSize) {
+  //
+  // Where the rows price the operation they carry its profitability margin
+  // already, so the tie-break is redundant and getZenGSVectorCost charges the
+  // sub-masks as the instructions they are instead.
+  const bool ZenRowsPriceIt = CostKind == TTI::TCK_RecipThroughput &&
+                              ST->hasPreferGSCostTable() && ST->hasAVX512();
+  if (MICA.getVariableMask() && CostKind != TTI::TCK_CodeSize &&
+      !ZenRowsPriceIt) {
     auto *MaskVecTy =
         FixedVectorType::get(Type::getInt1Ty(SrcVTy->getContext()),
                              cast<FixedVectorType>(SrcVTy)->getNumElements());

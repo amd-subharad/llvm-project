@@ -1073,7 +1073,7 @@ define i32 @masked_gather(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m8
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:18 SizeLat:6 for: %V4F64 = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x double> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:15 SizeLat:9 for: %V2F64 = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x double> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:6 SizeLat:3 for: %V1F64 = call <1 x double> @llvm.masked.gather.v1f64.v1p0(<1 x ptr> align 1 undef, <1 x i1> %m1, <1 x double> undef)
-; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %V16F32 = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x float> undef)
+; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %V16F32 = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x float> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:25 CodeSize:1 Lat:34 SizeLat:10 for: %V8F32 = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> align 1 undef, <8 x i1> %m8, <8 x float> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:18 SizeLat:6 for: %V4F32 = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x float> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:15 SizeLat:9 for: %V2F32 = call <2 x float> @llvm.masked.gather.v2f32.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x float> undef)
@@ -1081,7 +1081,7 @@ define i32 @masked_gather(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m8
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:15 CodeSize:1 Lat:18 SizeLat:6 for: %V4I64 = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x i64> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:16 SizeLat:10 for: %V2I64 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x i64> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:6 SizeLat:3 for: %V1I64 = call <1 x i64> @llvm.masked.gather.v1i64.v1p0(<1 x ptr> align 1 undef, <1 x i1> %m1, <1 x i64> undef)
-; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x i32> undef)
+; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x i32> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:25 CodeSize:1 Lat:34 SizeLat:10 for: %V8I32 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> align 1 undef, <8 x i1> %m8, <8 x i32> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:12 CodeSize:1 Lat:18 SizeLat:6 for: %V4I32 = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x i32> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:16 SizeLat:10 for: %V2I32 = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x i32> undef)
@@ -1100,7 +1100,7 @@ define i32 @masked_gather(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m8
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:18 SizeLat:6 for: %V4F64 = call <4 x double> @llvm.masked.gather.v4f64.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x double> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:15 SizeLat:9 for: %V2F64 = call <2 x double> @llvm.masked.gather.v2f64.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x double> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:6 SizeLat:3 for: %V1F64 = call <1 x double> @llvm.masked.gather.v1f64.v1p0(<1 x ptr> align 1 undef, <1 x i1> %m1, <1 x double> undef)
-; ZNVER5-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %V16F32 = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x float> undef)
+; ZNVER5-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %V16F32 = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x float> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:25 CodeSize:1 Lat:34 SizeLat:10 for: %V8F32 = call <8 x float> @llvm.masked.gather.v8f32.v8p0(<8 x ptr> align 1 undef, <8 x i1> %m8, <8 x float> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:18 SizeLat:6 for: %V4F32 = call <4 x float> @llvm.masked.gather.v4f32.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x float> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:15 SizeLat:9 for: %V2F32 = call <2 x float> @llvm.masked.gather.v2f32.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x float> undef)
@@ -1108,7 +1108,7 @@ define i32 @masked_gather(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m8
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:15 CodeSize:1 Lat:18 SizeLat:6 for: %V4I64 = call <4 x i64> @llvm.masked.gather.v4i64.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x i64> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:16 SizeLat:10 for: %V2I64 = call <2 x i64> @llvm.masked.gather.v2i64.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x i64> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:6 SizeLat:3 for: %V1I64 = call <1 x i64> @llvm.masked.gather.v1i64.v1p0(<1 x ptr> align 1 undef, <1 x i1> %m1, <1 x i64> undef)
-; ZNVER5-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x i32> undef)
+; ZNVER5-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %V16I32 = call <16 x i32> @llvm.masked.gather.v16i32.v16p0(<16 x ptr> align 1 undef, <16 x i1> %m16, <16 x i32> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:25 CodeSize:1 Lat:34 SizeLat:10 for: %V8I32 = call <8 x i32> @llvm.masked.gather.v8i32.v8p0(<8 x ptr> align 1 undef, <8 x i1> %m8, <8 x i32> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:12 CodeSize:1 Lat:18 SizeLat:6 for: %V4I32 = call <4 x i32> @llvm.masked.gather.v4i32.v4p0(<4 x ptr> align 1 undef, <4 x i1> %m4, <4 x i32> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:16 SizeLat:10 for: %V2I32 = call <2 x i32> @llvm.masked.gather.v2i32.v2p0(<2 x ptr> align 1 undef, <2 x i1> %m2, <2 x i32> undef)
@@ -1377,7 +1377,7 @@ define i32 @masked_scatter(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4f64.v4p0(<4 x double> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:9 SizeLat:9 for: call void @llvm.masked.scatter.v2f64.v2p0(<2 x double> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:3 SizeLat:3 for: call void @llvm.masked.scatter.v1f64.v1p0(<1 x double> undef, <1 x ptr> align 1 undef, <1 x i1> %m1)
-; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:45 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16f32.v16p0(<16 x float> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
+; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:49 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16f32.v16p0(<16 x float> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:24 CodeSize:1 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v8f32.v8p0(<8 x float> undef, <8 x ptr> align 1 undef, <8 x i1> %m8)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:20 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4f32.v4p0(<4 x float> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:9 SizeLat:9 for: call void @llvm.masked.scatter.v2f32.v2p0(<2 x float> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
@@ -1385,7 +1385,7 @@ define i32 @masked_scatter(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:16 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4i64.v4p0(<4 x i64> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v2i64.v2p0(<2 x i64> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:3 SizeLat:3 for: call void @llvm.masked.scatter.v1i64.v1p0(<1 x i64> undef, <1 x ptr> align 1 undef, <1 x i1> %m1)
-; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:45 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
+; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:49 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:24 CodeSize:1 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v8i32.v8p0(<8 x i32> undef, <8 x ptr> align 1 undef, <8 x i1> %m8)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:20 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4i32.v4p0(<4 x i32> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v2i32.v2p0(<2 x i32> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
@@ -1404,7 +1404,7 @@ define i32 @masked_scatter(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:11 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4f64.v4p0(<4 x double> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:9 SizeLat:9 for: call void @llvm.masked.scatter.v2f64.v2p0(<2 x double> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:3 SizeLat:3 for: call void @llvm.masked.scatter.v1f64.v1p0(<1 x double> undef, <1 x ptr> align 1 undef, <1 x i1> %m1)
-; ZNVER5-NEXT:  Cost Model: Found costs of RThru:45 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16f32.v16p0(<16 x float> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
+; ZNVER5-NEXT:  Cost Model: Found costs of RThru:49 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16f32.v16p0(<16 x float> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:24 CodeSize:1 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v8f32.v8p0(<8 x float> undef, <8 x ptr> align 1 undef, <8 x i1> %m8)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:20 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4f32.v4p0(<4 x float> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:7 CodeSize:9 Lat:9 SizeLat:9 for: call void @llvm.masked.scatter.v2f32.v2p0(<2 x float> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
@@ -1412,7 +1412,7 @@ define i32 @masked_scatter(<1 x i1> %m1, <2 x i1> %m2, <4 x i1> %m4, <8 x i1> %m
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:16 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4i64.v4p0(<4 x i64> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v2i64.v2p0(<2 x i64> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:2 CodeSize:3 Lat:3 SizeLat:3 for: call void @llvm.masked.scatter.v1i64.v1p0(<1 x i64> undef, <1 x ptr> align 1 undef, <1 x i1> %m1)
-; ZNVER5-NEXT:  Cost Model: Found costs of RThru:45 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
+; ZNVER5-NEXT:  Cost Model: Found costs of RThru:49 CodeSize:2 Lat:20 SizeLat:20 for: call void @llvm.masked.scatter.v16i32.v16p0(<16 x i32> undef, <16 x ptr> align 1 undef, <16 x i1> %m16)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:24 CodeSize:1 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v8i32.v8p0(<8 x i32> undef, <8 x ptr> align 1 undef, <8 x i1> %m8)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:20 CodeSize:1 Lat:6 SizeLat:6 for: call void @llvm.masked.scatter.v4i32.v4p0(<4 x i32> undef, <4 x ptr> align 1 undef, <4 x i1> %m4)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:8 CodeSize:10 Lat:10 SizeLat:10 for: call void @llvm.masked.scatter.v2i32.v2p0(<2 x i32> undef, <2 x ptr> align 1 undef, <2 x i1> %m2)
@@ -2439,13 +2439,13 @@ define <16 x float> @test_gather_16f32_ra_var_mask(<16 x ptr> %ptrs, <16 x i32> 
 ; VBMI2-SLOW-LABEL: 'test_gather_16f32_ra_var_mask'
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:3 CodeSize:1 Lat:1 SizeLat:1 for: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of 0 for: %gep.v = getelementptr float, <16 x ptr> %ptrs, <16 x i64> %sext_ind
-; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 4 %gep.v, <16 x i1> %mask, <16 x float> undef)
+; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 4 %gep.v, <16 x i1> %mask, <16 x float> undef)
 ; VBMI2-SLOW-NEXT:  Cost Model: Found costs of RThru:0 CodeSize:1 Lat:1 SizeLat:1 for: ret <16 x float> %res
 ;
 ; ZNVER5-LABEL: 'test_gather_16f32_ra_var_mask'
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:3 CodeSize:1 Lat:1 SizeLat:1 for: %sext_ind = sext <16 x i32> %ind to <16 x i64>
 ; ZNVER5-NEXT:  Cost Model: Found costs of 0 for: %gep.v = getelementptr float, <16 x ptr> %ptrs, <16 x i64> %sext_ind
-; ZNVER5-NEXT:  Cost Model: Found costs of RThru:36 CodeSize:2 Lat:68 SizeLat:20 for: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 4 %gep.v, <16 x i1> %mask, <16 x float> undef)
+; ZNVER5-NEXT:  Cost Model: Found costs of RThru:40 CodeSize:2 Lat:68 SizeLat:20 for: %res = call <16 x float> @llvm.masked.gather.v16f32.v16p0(<16 x ptr> align 4 %gep.v, <16 x i1> %mask, <16 x float> undef)
 ; ZNVER5-NEXT:  Cost Model: Found costs of RThru:0 CodeSize:1 Lat:1 SizeLat:1 for: ret <16 x float> %res
 ;
   %sext_ind = sext <16 x i32> %ind to <16 x i64>
